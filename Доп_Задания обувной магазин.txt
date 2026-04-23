@@ -1,0 +1,55 @@
+ПРОЕКТИРОВАНИЕ БАЗЫ ДАННЫХ ОБУВНОГО МАГАЗИНА
+
+СПИСОК СУЩНОСТЕЙ И ИХ АТРИБУТЫ
+
+1. Производитель (manufacturer)
+- id (PK, INT, AUTO_INCREMENT) — уникальный идентификатор производителя;
+- title (VARCHAR(255), NOT NULL) — название производителя;
+- country (VARCHAR(100)) — страна производства;
+- contact_info (TEXT) — контактная информация (телефон, email, адрес).
+
+2. Категория обуви (shoe_category)
+- id (PK, INT, AUTO_INCREMENT) — идентификатор категории;
+- name (VARCHAR(100), NOT NULL) — название категории (например, «кроссовки», «полуботинки», «ботинки», «сапоги», «тапочки»).
+
+3. Обувь (shoe)
+- id (PK, INT, AUTO_INCREMENT) — уникальный идентификатор модели обуви;
+- manufacturer_id (FK → manufacturer.id) — ссылка на производителя;
+- category_id (FK → shoe_category.id) — ссылка на категорию;
+- model_name (VARCHAR(255)) — название модели (например, «Air Max 270»);
+- description (TEXT) — описание модели;
+- base_price (DECIMAL(10,2), NOT NULL) — базовая цена за единицу (без учёта скидок);
+- release_year (YEAR) — год выпуска модели.
+
+4. Ассортимент (assortment)
+- id (PK, INT, AUTO_INCREMENT) — уникальный идентификатор позиции в ассортименте;
+- shoe_id (FK → shoe.id) — ссылка на модель обуви;
+- size (DECIMAL(4,1), NOT NULL) — размер (например, 38,5; 42);
+- color (VARCHAR(50), NOT NULL) — цвет;
+- stock_count (INT, NOT NULL, DEFAULT 0) — количество единиц товара на складе;
+- discount_percent (DECIMAL(5,2), DEFAULT 0.00) — процент скидки на данную позицию (если есть).
+
+5. Клиент (customer)
+- id (PK, INT, AUTO_INCREMENT) — уникальный идентификатор клиента;
+- fio (VARCHAR(255), NOT NULL) — ФИО клиента;
+- phone (VARCHAR(20)) — номер телефона;
+- email (VARCHAR(255), UNIQUE) — адрес электронной почты;
+- registration_date (DATETIME, DEFAULT CURRENT_TIMESTAMP) — дата регистрации в системе.
+
+6. Заказы (order)
+- id (PK, INT, AUTO_INCREMENT) — уникальный номер заказа;
+- customer_id (FK → customer.id) — ссылка на клиента, оформившего заказ;
+- order_date (DATETIME, DEFAULT CURRENT_TIMESTAMP) — дата и время оформления заказа;
+- status (ENUM('ожидает оплаты', 'оплачен', 'в сборке', 'отправлен', 'доставлен', 'отменён'), DEFAULT 'ожидает оплаты') — текущий статус заказа;
+- total_amount (DECIMAL(12,2), NOT NULL) — итоговая сумма заказа (рассчитывается при оформлении с учётом скидок);
+- shipping_address (TEXT, NOT NULL) — адрес доставки;
+- payment_method (ENUM('наличные', 'карта онлайн', 'перевод')) — способ оплаты.
+
+7. Состав заказа (order_item) (связующая таблица для связи «многие‑ко‑многим» между order и assortment)
+- id (PK, INT, AUTO_INCREMENT);
+- order_id (FK → order.id) — ссылка на заказ;
+- assortment_id (FK → assortment.id) — ссылка на позицию в ассортименте;
+- quantity (INT, NOT NULL) — количество единиц данного товара в заказе;
+- unit_price_at_order (DECIMAL(10,2), NOT NULL) — цена за единицу на момент оформления заказа (фиксируется для корректного учёта, даже если позже цена изменится).
+
+
