@@ -1,18 +1,78 @@
 -- решение за 5 день
 -- практические работы 15, 16 и 17
 
+CREATE DATABASE IF NOT EXISTS Market CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE Market;
+
+-- подготовка таблиц market, если они не были загружены из первого дня
+CREATE TABLE IF NOT EXISTS authors (
+    author_id INT NOT NULL AUTO_INCREMENT,
+    last_name VARCHAR(50) NOT NULL,
+    first_name VARCHAR(50) NOT NULL,
+    country VARCHAR(30) NOT NULL DEFAULT 'Россия',
+    CONSTRAINT pk_authors PRIMARY KEY (author_id),
+    CONSTRAINT uq_authors_full_name UNIQUE (last_name, first_name)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS books (
+    book_id INT NOT NULL AUTO_INCREMENT,
+    author_id INT NOT NULL,
+    title VARCHAR(100) NOT NULL,
+    genre VARCHAR(30) NOT NULL DEFAULT 'проза',
+    price DECIMAL(8,2) UNSIGNED NOT NULL DEFAULT 0.00,
+    mass DECIMAL(6,3) UNSIGNED NOT NULL DEFAULT 0.000,
+    pages SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    publish_year YEAR NULL,
+    CONSTRAINT pk_books PRIMARY KEY (book_id),
+    CONSTRAINT fk_books_author_id FOREIGN KEY (author_id)
+        REFERENCES authors (author_id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS customers (
+    customer_id INT NOT NULL AUTO_INCREMENT,
+    login VARCHAR(20) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    first_name VARCHAR(50) NOT NULL,
+    address VARCHAR(100) NOT NULL,
+    phone VARCHAR(20) NULL,
+    CONSTRAINT pk_customers PRIMARY KEY (customer_id),
+    CONSTRAINT uq_customers_login UNIQUE (login)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS orders (
+    order_id INT NOT NULL AUTO_INCREMENT,
+    customer_id INT NOT NULL,
+    order_datetime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_orders PRIMARY KEY (order_id),
+    CONSTRAINT fk_orders_customer_id FOREIGN KEY (customer_id)
+        REFERENCES customers (customer_id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS order_items (
+    order_id INT NOT NULL,
+    book_id INT NOT NULL,
+    quantity TINYINT UNSIGNED NOT NULL DEFAULT 1,
+    CONSTRAINT pk_order_items PRIMARY KEY (order_id, book_id),
+    CONSTRAINT fk_order_items_order_id FOREIGN KEY (order_id)
+        REFERENCES orders (order_id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_order_items_book_id FOREIGN KEY (book_id)
+        REFERENCES books (book_id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB;
 
 -- практическая работа 15
 -- создание after-триггеров в mysql
 
--- 15.5.1 таблица удаленных заказчиков и after delete триггер
 DROP TABLE IF EXISTS deleted_customers;
-
 CREATE TABLE deleted_customers LIKE customers;
-
-ALTER TABLE deleted_customers
-ADD COLUMN deleted_at DATETIME NOT NULL;
+ALTER TABLE deleted_customers ADD COLUMN deleted_at DATETIME NOT NULL;
 
 DROP TRIGGER IF EXISTS customers_after_delete;
 DELIMITER //
@@ -20,30 +80,12 @@ CREATE TRIGGER customers_after_delete
 AFTER DELETE ON customers
 FOR EACH ROW
 BEGIN
-    INSERT INTO deleted_customers (
-        customer_id,
-        login,
-        last_name,
-        first_name,
-        address,
-        phone,
-        deleted_at
-    )
-    VALUES (
-        OLD.customer_id,
-        OLD.login,
-        OLD.last_name,
-        OLD.first_name,
-        OLD.address,
-        OLD.phone,
-        NOW()
-    );
+    INSERT INTO deleted_customers (customer_id, login, last_name, first_name, address, phone, deleted_at)
+    VALUES (OLD.customer_id, OLD.login, OLD.last_name, OLD.first_name, OLD.address, OLD.phone, NOW());
 END//
 DELIMITER ;
 
--- 15.5.2 таблица logs и after-триггеры insert, update, delete для books и orders
 DROP TABLE IF EXISTS logs;
-
 CREATE TABLE logs (
     log_id INT NOT NULL AUTO_INCREMENT,
     table_name VARCHAR(50) NOT NULL,
@@ -101,7 +143,6 @@ BEGIN
     VALUES ('orders', 'update', NOW(), CURRENT_USER());
 END//
 
--- 15.5.3 after delete для orders дополнен удалением заказчиков без заказов
 CREATE TRIGGER orders_after_delete
 AFTER DELETE ON orders
 FOR EACH ROW
@@ -111,13 +152,13 @@ BEGIN
 
     DELETE FROM customers
     WHERE customer_id NOT IN (
-        SELECT DISTINCT customer_id
+        SELECT customer_id
         FROM orders
+        WHERE customer_id IS NOT NULL
     );
 END//
 DELIMITER ;
 
--- 15.5.4 after insert для order_items записывает стоимость измененного заказа в @orderCost
 DROP TRIGGER IF EXISTS order_items_after_insert;
 DELIMITER //
 CREATE TRIGGER order_items_after_insert
@@ -135,7 +176,6 @@ DELIMITER ;
 -- практическая работа 16
 -- создание before-триггеров в mysql
 
--- 16.5.1 before delete для customers удаляет заказы и состав заказов
 DROP TRIGGER IF EXISTS customers_before_delete;
 DELIMITER //
 CREATE TRIGGER customers_before_delete
@@ -154,7 +194,6 @@ BEGIN
 END//
 DELIMITER ;
 
--- 16.5.2 before insert для books ограничивает цену значением 5000
 DROP TRIGGER IF EXISTS books_before_insert;
 DELIMITER //
 CREATE TRIGGER books_before_insert
@@ -167,7 +206,6 @@ BEGIN
 END//
 DELIMITER ;
 
--- 16.5.3 before insert для orders ставит текущую дату и время
 DROP TRIGGER IF EXISTS orders_before_insert;
 DELIMITER //
 CREATE TRIGGER orders_before_insert
@@ -178,12 +216,8 @@ BEGIN
 END//
 DELIMITER ;
 
--- 16.5.4 добавление количества книг и before insert для order_items
-ALTER TABLE books
-ADD COLUMN quantity INT NOT NULL DEFAULT 100;
-
-UPDATE books
-SET quantity = 50;
+ALTER TABLE books ADD COLUMN quantity INT NOT NULL DEFAULT 100;
+UPDATE books SET quantity = 50;
 
 DROP TRIGGER IF EXISTS order_items_before_insert;
 DELIMITER //
@@ -200,44 +234,36 @@ DELIMITER ;
 -- практическая работа 17
 -- разграничение прав доступа пользователей mysql
 
--- 17.5.1 пользователь с правом show databases
 DROP USER IF EXISTS 'userTask1'@'localhost';
 CREATE USER 'userTask1'@'localhost';
 GRANT SHOW DATABASES ON *.* TO 'userTask1'@'localhost';
 
--- 17.5.2 пользователь со всеми правами уровня сервера и паролем 123
 DROP USER IF EXISTS 'userTask2'@'localhost';
 CREATE USER 'userTask2'@'localhost' IDENTIFIED BY '123';
 GRANT ALL PRIVILEGES ON *.* TO 'userTask2'@'localhost';
 
--- 17.5.3 пользователь с dml-правами в базе market и паролем qwerty
 DROP USER IF EXISTS 'userTask3'@'localhost';
 CREATE USER 'userTask3'@'localhost' IDENTIFIED BY 'qwerty';
 GRANT SELECT, INSERT, UPDATE, DELETE ON Market.* TO 'userTask3'@'localhost';
 
--- 17.5.4 пользователь с правом select в таблице books
 DROP USER IF EXISTS 'userTask4'@'localhost';
 CREATE USER 'userTask4'@'localhost';
 GRANT SELECT ON Market.books TO 'userTask4'@'localhost';
 
--- 17.5.5 пользователь с select по столбцам book_id, title, price и update по price
 DROP USER IF EXISTS 'userTask5'@'localhost';
 CREATE USER 'userTask5'@'localhost';
 GRANT SELECT (book_id, title, price), UPDATE (price) ON Market.books TO 'userTask5'@'localhost';
 
--- 17.5.6 пользователь из phpmyadmin с глобальными select и show databases
 DROP USER IF EXISTS 'userTask6'@'localhost';
 CREATE USER 'userTask6'@'localhost';
 GRANT SELECT, SHOW DATABASES ON *.* TO 'userTask6'@'localhost';
 
--- 17.5.7 пользователь из phpmyadmin с правами на authors и books
 DROP USER IF EXISTS 'userTask7'@'localhost';
 CREATE USER 'userTask7'@'localhost';
 GRANT SELECT ON Market.books TO 'userTask7'@'localhost';
 GRANT SELECT ON Market.authors TO 'userTask7'@'localhost';
 GRANT INSERT ON Market.books TO 'userTask7'@'localhost';
 
--- 17.5.8 пользователь с паролем 12345 и правом select по базе market
 DROP USER IF EXISTS 'userTask8'@'localhost';
 CREATE USER 'userTask8'@'localhost' IDENTIFIED BY '12345';
 GRANT SELECT ON Market.* TO 'userTask8'@'localhost';
