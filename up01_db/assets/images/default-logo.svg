@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="420" viewBox="0 0 420 420" role="img" aria-label="game logo">
+  <rect width="420" height="420" rx="32" fill="#f1eee5"/>
+  <rect x="24" y="24" width="372" height="372" rx="26" fill="#ffffff" stroke="#171717" stroke-width="2"/>
+  <circle cx="120" cy="140" r="56" fill="#dedbd2"/>
+  <path d="M 84 294 C 140 218, 218 360, 328 194" fill="none" stroke="#171717" stroke-width="4" stroke-linecap="round"/>
+  <text x="50%" y="53%" text-anchor="middle" dominant-baseline="middle" fill="#171717" font-family="Arial, sans-serif" font-size="54" font-weight="700">game</text>
+</svg>
